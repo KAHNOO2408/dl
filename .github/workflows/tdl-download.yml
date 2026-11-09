@@ -10,12 +10,12 @@ on:
       threads:
         description: "تعداد اتصال هم‌زمان"
         required: false
-        default: "8"
+        default: "4"
 
 jobs:
   download:
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 350
     steps:
       - name: Install tdl
         run: |
