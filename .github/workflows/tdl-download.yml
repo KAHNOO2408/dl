@@ -1,0 +1,56 @@
+name: Telegram Download (tdl)
+
+on:
+  workflow_dispatch:
+    inputs:
+      link:
+        description: "لینک پیام (t.me/...). خالی = آخرین پیام Saved Messages"
+        required: false
+        default: ""
+      threads:
+        description: "تعداد اتصال هم‌زمان"
+        required: false
+        default: "8"
+
+jobs:
+  download:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Install tdl
+        run: |
+          curl -sSL https://github.com/iyear/tdl/releases/latest/download/tdl_Linux_64bit.tar.gz | sudo tar xz -C /usr/local/bin tdl
+          tdl version
+
+      - name: Restore session
+        env:
+          P1: ${{ secrets.TDL_BACKUP_1 }}
+          P2: ${{ secrets.TDL_BACKUP_2 }}
+          P3: ${{ secrets.TDL_BACKUP_3 }}
+          P4: ${{ secrets.TDL_BACKUP_4 }}
+        run: |
+          printf '%s%s%s%s' "$P1" "$P2" "$P3" "$P4" | tr -d '\r\n\t ' | base64 -d > backup.tdl
+          tdl recover -f backup.tdl
+          rm backup.tdl
+
+      - name: Download from Telegram
+        env:
+          LINK: ${{ github.event.inputs.link }}
+          THREADS: ${{ github.event.inputs.threads }}
+        run: |
+          mkdir -p out
+          if [ -z "$LINK" ]; then
+            tdl -n github chat export -T last -i 1 -o export.json
+            tdl -n github dl -f export.json -d out -t "$THREADS" --pool 16 --reconnect-timeout 0
+          else
+            tdl -n github dl -u "$LINK" -d out -t "$THREADS" --pool 16 --reconnect-timeout 0
+          fi
+          ls -lh out
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: telegram-file
+          path: out/
+          retention-days: 1
+          compression-level: 0
